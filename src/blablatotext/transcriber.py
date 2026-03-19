@@ -42,7 +42,7 @@ class Transcriber:
             "-f", "f32le",
             "pipe:1",
         ]
-        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        result = subprocess.run(cmd, capture_output=True)  # noqa: S603
         if result.returncode != 0:
             raise TranscriptionError(f"ffmpeg error: {result.stderr.decode()}")
         audio = np.frombuffer(result.stdout, dtype=np.float32)

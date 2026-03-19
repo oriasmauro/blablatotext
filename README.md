@@ -2,7 +2,7 @@
 
 > **Proof of Concept** — Herramienta orientada a periodistas y community managers que reciben audios en español y necesitan transcripciones precisas y resumenes listos para usar, sin intervención manual.
 
-Herramienta de linea de comandos para **transcribir audio al español** y generar **resumenes automaticos** usando modelos de Hugging Face (Whisper + LED).
+Herramienta de **linea de comandos y API REST** para **transcribir audio al español** y generar **resumenes automaticos** usando modelos de Hugging Face (Whisper + LED).
 
 Soporta cualquier formato de audio/video compatible con ffmpeg: `.wav`, `.mp3`, `.flac`, `.mp4`, `.mkv`, etc.
 
@@ -77,6 +77,79 @@ Ejemplo con modelo mas potente:
 BLABLATOTEXT_ASR_MODEL=openai/whisper-large-v3 uv run blablatotext audio.mp4
 ```
 
+## API REST
+
+### Arrancar localmente
+
+```bash
+uv run uvicorn blablatotext.api:app --reload
+# → http://localhost:8000
+# → Docs interactivos: http://localhost:8000/docs
+```
+
+### Endpoints
+
+| Metodo | Ruta          | Descripcion                                      |
+|--------|---------------|--------------------------------------------------|
+| GET    | `/health`     | Healthcheck (para load balancer / ECS)           |
+| POST   | `/transcribe` | Recibe audio, devuelve transcripcion             |
+| POST   | `/summarize`  | Recibe texto JSON, devuelve resumen              |
+| POST   | `/process`    | Recibe audio, devuelve transcripcion + resumen   |
+
+### Ejemplos con curl
+
+```bash
+# Healthcheck
+curl http://localhost:8000/health
+
+# Transcribir audio
+curl -X POST http://localhost:8000/transcribe \
+  -F "audio=@audios/mi_audio.wav"
+
+# Resumir texto
+curl -X POST http://localhost:8000/summarize \
+  -H "Content-Type: application/json" \
+  -d '{"text": "Texto largo a resumir..."}'
+
+# Transcribir y resumir en un paso
+curl -X POST http://localhost:8000/process \
+  -F "audio=@audios/mi_audio.mp4"
+```
+
+### Esquemas de respuesta
+
+```json
+// GET /health
+{ "status": "ok" }
+
+// POST /transcribe
+{ "transcript": "Texto transcrito..." }
+
+// POST /summarize
+{ "summary": "Resumen generado..." }
+
+// POST /process
+{ "transcript": "Texto transcrito...", "summary": "Resumen generado..." }
+```
+
+## Docker
+
+```bash
+# Build
+docker build -t blablatotext .
+
+# Run
+docker run -p 8000:8000 blablatotext
+
+# Con modelos alternativos via env vars
+docker run -p 8000:8000 \
+  -e BLABLATOTEXT_ASR_MODEL=openai/whisper-medium \
+  -e BLABLATOTEXT_DEVICE=cpu \
+  blablatotext
+```
+
+La imagen incluye ffmpeg y todas las dependencias. Los modelos se descargan en el primer request (~2 GB total); para produccion se recomienda pre-descargarlos en un init container o al buildear la imagen.
+
 ## Notas de compatibilidad
 
 - **macOS Intel (x86_64):** PyTorch no tiene wheels >= 2.4 para esta plataforma. El proyecto usa torch 2.2.x con `transformers<4.47.0`.
@@ -105,6 +178,7 @@ src/blablatotext/
 ├── config.py       # Configuracion centralizada via pydantic-settings
 ├── transcriber.py  # Wrapper ASR con Whisper (lazy-loading, decodifica via ffmpeg)
 ├── summarizer.py   # Wrapper de resumen con LED (lazy-loading)
+├── api.py          # API REST con FastAPI (4 endpoints, CORS, schemas Pydantic)
 └── main.py         # CLI construido con Typer + Rich
 ```
 

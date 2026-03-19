@@ -23,10 +23,11 @@ def audio_file(tmp_path):
 
 @pytest.fixture
 def mock_transcriber(audio_file):
-    """Transcriber con pipeline mockeado. No descarga ningun modelo."""
+    """Transcriber con pipeline mockeado. No descarga ningun modelo ni invoca ffmpeg."""
     transcriber = Transcriber()
     transcriber._pipeline = MagicMock(return_value={"text": MOCK_TRANSCRIPT})
     transcriber._load = MagicMock()
+    transcriber._load_audio = MagicMock(return_value={"array": [0.0] * 100, "sampling_rate": 16000})
     return transcriber
 
 

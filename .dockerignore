@@ -1,0 +1,27 @@
+# Entornos virtuales
+.venv/
+
+# Cache y artefactos de build
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Tests (no van en la imagen de produccion)
+tests/
+
+# Archivos de desarrollo y configuracion local
+.env
+.python-version
+uv.lock
+README.md
+audio_summary.py
+
+# Audios de ejemplo
+audios/
+
+# MacOS
+.DS_Store
