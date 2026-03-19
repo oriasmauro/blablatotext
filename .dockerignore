@@ -16,8 +16,6 @@ tests/
 # Archivos de desarrollo y configuracion local
 .env
 .python-version
-uv.lock
-README.md
 audio_summary.py
 
 # Audios de ejemplo

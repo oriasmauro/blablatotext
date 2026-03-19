@@ -8,6 +8,8 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
 # Copiar archivos de dependencias primero (mejor cache de capas)
 COPY pyproject.toml .
+COPY uv.lock .
+COPY README.md .
 COPY src/ src/
 
 # Instalar dependencias de produccion en un venv dentro del proyecto
