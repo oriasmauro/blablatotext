@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+dist/
+*.egg-info/
+
+# UV
+uv.lock
+
+# Tests / Coverage
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Entorno
+.env
+
+# MacOS
+.DS_Store
+
+# Modelos descargados por HuggingFace
+~/.cache/huggingface/
+
+# audios de test
+audios/

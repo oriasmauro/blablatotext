@@ -1,0 +1,61 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "blablatotext"
+version = "0.1.0"
+description = "Transcripcion y resumen automatico de audio usando Whisper y BART"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+
+dependencies = [
+    "transformers>=4.40.0,<4.47.0",
+    "torch>=2.0.0",
+    "pydantic-settings>=2.3.0",
+    "typer>=0.12.0",
+    "rich>=13.7.0",
+    "soundfile>=0.12.1",
+    "numpy>=1.24.0,<2.0.0",
+]
+
+[project.scripts]
+blablatotext = "blablatotext.main:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.2.0",
+    "pytest-cov>=5.0.0",
+    "ruff>=0.5.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/blablatotext"]
+
+[tool.ruff]
+src = ["src"]
+line-length = 88
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = ["E501", "B008"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["blablatotext"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--cov=blablatotext --cov-report=term-missing -v"
+
+[tool.coverage.run]
+source = ["src/blablatotext"]
+
+[tool.uv]
+required-environments = [
+    "sys_platform == 'darwin' and platform_machine == 'x86_64'",
+    "sys_platform == 'darwin' and platform_machine == 'arm64'",
+    "sys_platform == 'linux'",
+    "sys_platform == 'win32'",
+]
