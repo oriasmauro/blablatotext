@@ -70,7 +70,10 @@ class Summarizer:
         partial: list[str] = []
         for chunk in self._chunk_text(text):
             input_len = len(chunk.split())
-            max_len = max(min(settings.max_summary_length, input_len - 1), settings.min_summary_length + 1)
+            max_len = max(
+                min(settings.max_summary_length, input_len - 1),
+                settings.min_summary_length + 1,
+            )
             result = self._pipeline(  # type: ignore[misc]
                 chunk,
                 max_length=max_len,
