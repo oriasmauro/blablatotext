@@ -62,7 +62,7 @@ Security Group (blablatotext-sg)
    ▼                          ▼
 ECS Service (Fargate)      EFS Filesystem (blablatotext-efs)
    │  2 vCPU / 4 GiB          │  modelos cacheados en /mnt/efs
-   │  monta EFS ──────────────┘  (~2 GB, cifrado en reposo)
+   │  monta EFS ──────────────┘  (~1.7 GB, cifrado en reposo)
    │
    ▼
 ECR Repository (blablatotext:latest)
@@ -83,7 +83,7 @@ Application Auto Scaling
 | ECS Cluster | `blablatotext-cluster` | Fargate serverless |
 | ECS Service | `blablatotext-service` | min=0 / max=2 tasks |
 | Task Definition | `blablatotext-task` | 2048 CPU / 4096 MiB |
-| EFS Filesystem | `blablatotext-efs` | Modelos HuggingFace (~2 GB) |
+| EFS Filesystem | `blablatotext-efs` | Modelos HuggingFace (~1.7 GB) |
 | IAM Role | `blablatotext-task-exec-role` | ECR + CW Logs + EFS |
 | Security Group | `blablatotext-sg` | TCP 8000 público + TCP 2049 self |
 | Log Group | `/ecs/blablatotext` | Retención 7 días |
@@ -91,7 +91,7 @@ Application Auto Scaling
 
 ### Por qué EFS
 
-Los modelos de Whisper + LED pesan ~2 GB y tardan varios minutos en descargarse. Sin EFS, cada cold start de un nuevo task descargaría los modelos desde HuggingFace. Con EFS:
+Los modelos de Whisper + mT5 pesan ~1.7 GB y tardan varios minutos en descargarse. Sin EFS, cada cold start de un nuevo task descargaría los modelos desde HuggingFace. Con EFS:
 
 - La descarga se hace **una sola vez** (`make efs-init`)
 - El task monta `/mnt/efs` al arrancar y los modelos ya están ahí
@@ -132,7 +132,7 @@ El script es **idempotente**: si algún recurso ya existe, lo saltea.
 make efs-init
 ```
 
-Lanza un task Fargate de vida corta que descarga Whisper y LED al volumen EFS y luego termina. Tarda ~5-10 minutos según la velocidad de la red.
+Lanza un task Fargate de vida corta que descarga Whisper y mT5 al volumen EFS y luego termina. Tarda ~5-10 minutos según la velocidad de la red.
 
 Solo es necesario repetirlo si cambiás los modelos (`BLABLATOTEXT_ASR_MODEL`, `BLABLATOTEXT_SUMMARIZER_MODEL`).
 
@@ -225,7 +225,7 @@ make deploy
 |---|---|---|
 | Fargate vCPU (2 vCPU × 12h × 22 días) | 528h × $0.04048/vCPU-h × 2 | ~$42.80 |
 | Fargate memoria (4 GiB × 12h × 22 días) | 528h × $0.004445/GiB-h × 4 | ~$9.39 |
-| EFS almacenamiento (~2.5 GB) | 2.5 × $0.30/GB-mes | ~$0.75 |
+| EFS almacenamiento (~2 GB) | 2 × $0.30/GB-mes | ~$0.60 |
 | ECR almacenamiento (~4 GB) | 4 × $0.10/GB | ~$0.40 |
 | CloudWatch Logs | < 5 GB (tier gratis) | $0 |
 | **Total estimado** | | **~$53/mes** |

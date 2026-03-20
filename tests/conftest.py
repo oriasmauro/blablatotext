@@ -27,7 +27,9 @@ def mock_transcriber(audio_file):
     transcriber = Transcriber()
     transcriber._pipeline = MagicMock(return_value={"text": MOCK_TRANSCRIPT})
     transcriber._load = MagicMock()
-    transcriber._load_audio = MagicMock(return_value={"array": [0.0] * 100, "sampling_rate": 16000})
+    transcriber._load_audio = MagicMock(
+        return_value={"array": [0.0] * 100, "sampling_rate": 16000}
+    )
     return transcriber
 
 
@@ -35,8 +37,6 @@ def mock_transcriber(audio_file):
 def mock_summarizer():
     """Summarizer con pipeline mockeado. No descarga ningun modelo."""
     summarizer = Summarizer()
-    summarizer._pipeline = MagicMock(
-        return_value=[{"summary_text": MOCK_SUMMARY}]
-    )
+    summarizer._pipeline = MagicMock(return_value=[{"summary_text": MOCK_SUMMARY}])
     summarizer._load = MagicMock()
     return summarizer

@@ -2,7 +2,7 @@
 
 > **Proof of Concept** — Herramienta orientada a periodistas y community managers que reciben audios en español y necesitan transcripciones precisas y resumenes listos para usar, sin intervención manual.
 
-Herramienta de **linea de comandos y API REST** para **transcribir audio al español** y generar **resumenes automaticos** usando modelos de Hugging Face (Whisper + LED).
+Herramienta de **linea de comandos y API REST** para **transcribir audio al español** y generar **resumenes automaticos** usando modelos de Hugging Face (Whisper + mT5).
 
 Soporta cualquier formato de audio/video compatible con ffmpeg: `.wav`, `.mp3`, `.flac`, `.mp4`, `.mkv`, etc.
 
@@ -17,7 +17,7 @@ Soporta cualquier formato de audio/video compatible con ffmpeg: `.wav`, `.mp3`, 
 | Componente | Modelo | Por que |
 |---|---|---|
 | Transcripcion | `openai/whisper-small` | Whisper es el estado del arte en ASR multilingue, entrenado especificamente en español con alta precision en acentos y ruido de fondo |
-| Resumen | `pszemraj/led-large-book-summary` | LED (Longformer Encoder-Decoder) maneja hasta 16 384 tokens, evitando el truncado que degrada la calidad en audios largos |
+| Resumen | `ELiRF/mt5-base-dacsa-es` | mT5-base fine-tuned en 1.8M pares de noticias españolas (corpus DACSA); genera resumenes nativamente en español sin traduccion intermedia |
 
 Ambos modelos son de codigo abierto, corren localmente y no envian datos a servicios externos.
 
@@ -40,7 +40,7 @@ cd blablatotext
 uv sync
 ```
 
-La primera ejecucion descargara los modelos automaticamente (~1.6 GB para LED, ~460 MB para Whisper small).
+La primera ejecucion descargara los modelos automaticamente (~1.2 GB para mT5, ~460 MB para Whisper small).
 
 ## Uso
 
@@ -65,11 +65,11 @@ Todos los parametros pueden sobreescribirse sin modificar codigo, usando variabl
 | Variable                          | Default                            | Descripcion                      |
 |-----------------------------------|------------------------------------|----------------------------------|
 | `BLABLATOTEXT_ASR_MODEL`          | `openai/whisper-small`             | Modelo de transcripcion Whisper  |
-| `BLABLATOTEXT_SUMMARIZER_MODEL`   | `pszemraj/led-large-book-summary`  | Modelo de resumen (LED)          |
+| `BLABLATOTEXT_SUMMARIZER_MODEL`   | `ELiRF/mt5-base-dacsa-es`          | Modelo de resumen en español (mT5)|
 | `BLABLATOTEXT_DEVICE`             | `cpu`                              | Dispositivo (`cpu` o `cuda`)     |
 | `BLABLATOTEXT_ASR_LANGUAGE`       | `es`                               | Idioma de transcripcion          |
-| `BLABLATOTEXT_MAX_SUMMARY_LENGTH` | `512`                              | Longitud maxima del resumen      |
-| `BLABLATOTEXT_MIN_SUMMARY_LENGTH` | `32`                               | Longitud minima del resumen      |
+| `BLABLATOTEXT_MAX_SUMMARY_LENGTH` | `150`                              | Longitud maxima por chunk (tokens)|
+| `BLABLATOTEXT_MIN_SUMMARY_LENGTH` | `20`                               | Longitud minima por chunk (tokens)|
 
 Ejemplo con modelo mas potente:
 
@@ -153,7 +153,7 @@ La imagen incluye ffmpeg y todas las dependencias. Los modelos se descargan en e
 ## Notas de compatibilidad
 
 - **macOS Intel (x86_64):** PyTorch no tiene wheels >= 2.4 para esta plataforma. El proyecto usa torch 2.2.x con `transformers<4.47.0`.
-- **Audios largos (> 30 segundos):** soportados de forma nativa gracias a `return_timestamps=True` en Whisper y al contexto extendido de LED (hasta 16 384 tokens).
+- **Audios largos (> 30 segundos):** la transcripcion usa `return_timestamps=True` en Whisper para procesar audio sin limite de duracion. Para el resumen, el texto se divide automaticamente en chunks de 200 palabras (dentro del contexto de mT5) y los resumenes parciales se concatenan.
 
 ## Desarrollo
 
@@ -177,7 +177,7 @@ uv run ruff format src tests
 src/blablatotext/
 ├── config.py       # Configuracion centralizada via pydantic-settings
 ├── transcriber.py  # Wrapper ASR con Whisper (lazy-loading, decodifica via ffmpeg)
-├── summarizer.py   # Wrapper de resumen con LED (lazy-loading)
+├── summarizer.py   # Wrapper de resumen con mT5 (lazy-loading, chunking)
 ├── api.py          # API REST con FastAPI (4 endpoints, CORS, schemas Pydantic)
 └── main.py         # CLI construido con Typer + Rich
 ```

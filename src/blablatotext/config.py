@@ -20,11 +20,11 @@ class Settings(BaseSettings):
     )
 
     asr_model: str = "openai/whisper-small"
-    summarizer_model: str = "pszemraj/led-large-book-summary"
+    summarizer_model: str = "ELiRF/mt5-base-dacsa-es"
     device: str = "cpu"
     asr_language: str = "es"
-    max_summary_length: int = 512
-    min_summary_length: int = 32
+    max_summary_length: int = 150
+    min_summary_length: int = 20
 
 
 # Singleton — importar desde aqui en toda la app

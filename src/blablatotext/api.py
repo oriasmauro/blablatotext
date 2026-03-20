@@ -11,6 +11,7 @@ from blablatotext.transcriber import Transcriber, TranscriptionError
 
 # --- Schemas ---
 
+
 class HealthResponse(BaseModel):
     status: str
 
@@ -33,6 +34,7 @@ class ProcessResponse(BaseModel):
 
 
 # --- Lifespan: carga los singletons una vez al arrancar ---
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -60,6 +62,7 @@ app.add_middleware(
 
 # --- Helpers ---
 
+
 async def _save_upload(upload: UploadFile) -> Path:
     """Guarda el UploadFile en un archivo temporal y devuelve su ruta."""
     suffix = Path(upload.filename or "audio.wav").suffix or ".wav"
@@ -72,6 +75,7 @@ async def _save_upload(upload: UploadFile) -> Path:
 
 
 # --- Routes ---
+
 
 @app.get("/health", response_model=HealthResponse, tags=["ops"])
 def health() -> HealthResponse:

@@ -36,10 +36,15 @@ class Transcriber:
     def _load_audio(self, path: Path) -> dict:
         """Decodifica cualquier formato (incluyendo MP4) a numpy array via ffmpeg."""
         cmd = [
-            "ffmpeg", "-i", str(path),
-            "-ar", str(SAMPLING_RATE),
-            "-ac", "1",
-            "-f", "f32le",
+            "ffmpeg",
+            "-i",
+            str(path),
+            "-ar",
+            str(SAMPLING_RATE),
+            "-ac",
+            "1",
+            "-f",
+            "f32le",
             "pipe:1",
         ]
         result = subprocess.run(cmd, capture_output=True)  # noqa: S603

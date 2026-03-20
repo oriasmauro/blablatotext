@@ -10,6 +10,7 @@ from tests.conftest import MOCK_SUMMARY, MOCK_TRANSCRIPT
 
 # --- Fixtures ---
 
+
 @pytest.fixture
 def mock_t():
     m = MagicMock()
@@ -43,6 +44,7 @@ def wav_bytes():
 
 # --- /health ---
 
+
 def test_health(client):
     r = client.get("/health")
     assert r.status_code == 200
@@ -50,6 +52,7 @@ def test_health(client):
 
 
 # --- /transcribe ---
+
 
 def test_transcribe_success(client, wav_bytes):
     r = client.post(
@@ -77,6 +80,7 @@ def test_transcribe_requires_file(client):
 
 # --- /summarize ---
 
+
 def test_summarize_success(client):
     r = client.post("/summarize", json={"text": "Texto de prueba para el resumen."})
     assert r.status_code == 200
@@ -96,6 +100,7 @@ def test_summarize_missing_body_returns_422(client):
 
 
 # --- /process ---
+
 
 def test_process_success(client, wav_bytes):
     r = client.post(

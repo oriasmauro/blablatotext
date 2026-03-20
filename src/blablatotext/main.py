@@ -50,10 +50,14 @@ def run(
         console.print(f"[bold red]Error de transcripcion:[/] {e}")
         raise typer.Exit(code=1) from e
 
-    console.print(Panel(transcript or "(vacio)", title="Transcripcion", border_style="cyan"))
+    console.print(
+        Panel(transcript or "(vacio)", title="Transcripcion", border_style="cyan")
+    )
 
     if not transcript:
-        console.print("[yellow]Advertencia:[/] Transcripcion vacia. Verifica el archivo de audio.")
+        console.print(
+            "[yellow]Advertencia:[/] Transcripcion vacia. Verifica el archivo de audio."
+        )
         raise typer.Exit(code=0)
 
     if no_summary:
