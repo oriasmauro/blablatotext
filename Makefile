@@ -5,6 +5,8 @@ ECR_REPO    ?= blablatotext
 ECS_CLUSTER ?= blablatotext-cluster
 ECS_SERVICE ?= blablatotext-service
 APP_PORT    ?= 8000
+SCALE_UP_UTC   ?= 11
+SCALE_DOWN_UTC ?= 23
 
 # HOST para make health — usa localhost por defecto, IP del task para remoto
 # Ejemplo: make health HOST=3.91.12.34
@@ -17,7 +19,7 @@ IMAGE_URI      = $(ECR_REGISTRY)/$(ECR_REPO):latest
 
 # ─── Config interna ───────────────────────────────────────────────────────────
 .DEFAULT_GOAL := help
-.PHONY: help dev test lint build run push setup efs-init deploy scale-up scale-down destroy health logs
+.PHONY: help dev test lint build run push setup efs-init deploy scale-up scale-down scheduler-enable scheduler-disable destroy health logs
 
 # ─── Targets ──────────────────────────────────────────────────────────────────
 
@@ -86,6 +88,20 @@ scale-up: ## Enciende el servicio (desired=1) — para uso fuera del horario lab
 		--output table
 	@echo ""
 	@echo "El task tarda ~30s en estar RUNNING. Seguí con: make logs"
+
+scheduler-enable: ## Activa el encendido/apagado automático L-V (scheduled actions)
+	@AWS_REGION=$(AWS_REGION) \
+	ECS_CLUSTER=$(ECS_CLUSTER) \
+	ECS_SERVICE=$(ECS_SERVICE) \
+	SCALE_UP_UTC=$(SCALE_UP_UTC) \
+	SCALE_DOWN_UTC=$(SCALE_DOWN_UTC) \
+	bash scripts/scheduler-enable.sh
+
+scheduler-disable: ## Desactiva el encendido/apagado automático (elimina scheduled actions)
+	@AWS_REGION=$(AWS_REGION) \
+	ECS_CLUSTER=$(ECS_CLUSTER) \
+	ECS_SERVICE=$(ECS_SERVICE) \
+	bash scripts/scheduler-disable.sh
 
 scale-down: ## Apaga el servicio (desired=0) — para parar costos
 	@echo "→ Apagando servicio $(ECS_CLUSTER)/$(ECS_SERVICE)..."

@@ -8,6 +8,7 @@ Guía para deployar blablatotext como API REST en AWS ECS Fargate con modelos ca
 - [Arquitectura](#arquitectura)
 - [Deploy desde cero](#deploy-desde-cero)
 - [Ciclo de vida del servicio](#ciclo-de-vida-del-servicio)
+- [Gestionar el scheduler](#gestionar-el-scheduler)
 - [Actualizar después de un cambio](#actualizar-después-de-un-cambio)
 - [Costos estimados](#costos-estimados)
 - [Cómo bajar todo](#cómo-bajar-todo)
@@ -175,6 +176,36 @@ L-V 23:00 UTC → desired=0  → ECS detiene el task → $0 de compute
 make scale-up    # encender (desired=1)
 make scale-down  # apagar   (desired=0)
 ```
+
+---
+
+## Gestionar el scheduler
+
+El scheduler controla el encendido y apagado automático del servicio en horario laboral. Se puede activar y desactivar sin tocar el resto de la infraestructura.
+
+### Desactivar el scheduler
+
+```bash
+make scheduler-disable
+```
+
+Elimina los scheduled actions de Auto Scaling. El servicio **queda en el estado actual** (si está encendido, sigue encendido). A partir de ese momento el control es completamente manual con `make scale-up` / `make scale-down`.
+
+### Reactivar el scheduler
+
+```bash
+make scheduler-enable
+```
+
+Recrea los scheduled actions con el horario configurado en el Makefile (`SCALE_UP_UTC` / `SCALE_DOWN_UTC`). Es idempotente: si ya existen, los sobreescribe.
+
+### Cambiar el horario
+
+```bash
+make scheduler-enable SCALE_UP_UTC=13 SCALE_DOWN_UTC=01
+```
+
+O bien modificar los valores por defecto en el Makefile y volver a correr `make scheduler-enable`.
 
 ### Healthcheck
 
