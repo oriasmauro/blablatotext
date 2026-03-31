@@ -1,12 +1,13 @@
-# Deploy en AWS ECS Fargate + EFS + Auto Scaling
+# Deploy en AWS ECS Fargate + EFS + Auto Scaling + API Gateway
 
-Guía para deployar blablatotext como API REST en AWS ECS Fargate con modelos cacheados en EFS y scale-to-0 automático en horario no laboral.
+Guía para deployar blablatotext como API REST en AWS ECS Fargate con modelos cacheados en EFS, scale-to-0 automático en horario no laboral, y endpoint HTTPS vía API Gateway.
 
 ## Índice
 
 - [Prerequisitos](#prerequisitos)
 - [Arquitectura](#arquitectura)
 - [Deploy desde cero](#deploy-desde-cero)
+- [API Gateway HTTPS](#api-gateway-https)
 - [Ciclo de vida del servicio](#ciclo-de-vida-del-servicio)
 - [Gestionar el scheduler](#gestionar-el-scheduler)
 - [Actualizar después de un cambio](#actualizar-después-de-un-cambio)
@@ -30,7 +31,7 @@ Guía para deployar blablatotext como API REST en AWS ECS Fargate con modelos ca
 ### AWS
 
 - Cuenta AWS activa con credenciales configuradas
-- Permisos IAM para: ECR, ECS, EFS, EC2, IAM, CloudWatch Logs, Application Auto Scaling, STS
+- Permisos IAM para: ECR, ECS, EFS, EC2, IAM, CloudWatch Logs, Application Auto Scaling, STS, **API Gateway** (`apigateway:*`, `apigatewayv2:*`)
 
 ```bash
 aws sts get-caller-identity   # debe mostrar tu Account ID
@@ -57,7 +58,12 @@ Ajustá `SCALE_UP_UTC` y `SCALE_DOWN_UTC` según tu zona horaria.
 ```
 Internet
    │
-   ▼  TCP 8000
+   ▼  HTTPS (443)
+API Gateway HTTP API (blablatotext-apigw)
+   │  $default stage — URL estable con TLS gestionado por AWS
+   │  forwardea a IP pública del task (HTTP 8000)
+   │
+   ▼  HTTP 8000
 Security Group (blablatotext-sg)
    │                          │ TCP 2049 (NFS, self)
    ▼                          ▼
@@ -76,6 +82,10 @@ Application Auto Scaling
    └── L-V 23:00 UTC → desired=0  (apagado automático)
 ```
 
+> **Nota MVP:** API Gateway apunta directamente a la IP pública del task ECS.
+> La IP cambia cada vez que el task se reinicia. Hay que correr `make apigw-update-ip`
+> después de cada `make scale-up`. Para producción se recomendaría un ALB delante del ECS.
+
 ### Recursos creados
 
 | Recurso | Nombre | Notas |
@@ -89,6 +99,7 @@ Application Auto Scaling
 | Security Group | `blablatotext-sg` | TCP 8000 público + TCP 2049 self |
 | Log Group | `/ecs/blablatotext` | Retención 7 días |
 | Auto Scaling | scheduled actions | Scale-to-0 horario laboral |
+| **API Gateway** | `blablatotext-apigw` | **HTTP API v2, HTTPS, $default stage** |
 
 ### Por qué EFS
 
@@ -159,6 +170,66 @@ make logs
 
 ---
 
+## API Gateway HTTPS
+
+### Crear el API Gateway (una sola vez)
+
+El service tiene que estar corriendo (`desired=1`) antes de crear el API Gateway:
+
+```bash
+make scale-up
+# esperar ~30s a que el task esté RUNNING
+make apigw-setup
+```
+
+El script crea el HTTP API v2, la integración HTTP_PROXY con path forwarding, y el stage `$default` con auto-deploy. Al terminar imprime la URL HTTPS:
+
+```
+https://<api-id>.execute-api.us-east-1.amazonaws.com
+```
+
+Esa URL es **estable** — no cambia aunque el task se reinicie. Lo que sí cambia es la IP interna del backend, que hay que actualizar con `apigw-update-ip`.
+
+### Ver la URL en cualquier momento
+
+```bash
+make apigw-url
+```
+
+### Actualizar la IP del backend (después de cada scale-up)
+
+Cada vez que el task ECS se reinicia (manual o por el scheduler) recibe una nueva IP pública. Hay que sincronizarla con el API Gateway:
+
+```bash
+make scale-up
+make apigw-update-ip   # espera automáticamente a que el task esté RUNNING
+```
+
+`apigw-update-ip` espera hasta 100 segundos a que el task esté RUNNING antes de actualizar. No hace falta esperar manualmente.
+
+### Probar los endpoints HTTPS
+
+```bash
+export API=$(make apigw-url --no-print-directory)
+
+curl "${API}/health"
+curl -X POST "${API}/transcribe" -F "audio=@audios/mi_audio.mp4"
+curl -X POST "${API}/summarize" \
+     -H "Content-Type: application/json" \
+     -d '{"text": "Texto a resumir..."}'
+curl -X POST "${API}/process" -F "audio=@audios/mi_audio.mp4"
+```
+
+Documentación interactiva: `${API}/docs`
+
+### Eliminar solo el API Gateway
+
+```bash
+make apigw-destroy   # no toca ECS ni EFS
+```
+
+---
+
 ## Ciclo de vida del servicio
 
 ### Control automático (horario laboral)
@@ -170,11 +241,16 @@ L-V 11:00 UTC → desired=1  → ECS levanta 1 task → API disponible en ~30s
 L-V 23:00 UTC → desired=0  → ECS detiene el task → $0 de compute
 ```
 
+> ⚠ Cuando el scheduler enciende el servicio automáticamente, la URL de API Gateway
+> apunta a la IP anterior (ya inválida). Correr `make apigw-update-ip` al inicio
+> del día si se usa API Gateway.
+
 ### Control manual
 
 ```bash
-make scale-up    # encender (desired=1)
-make scale-down  # apagar   (desired=0)
+make scale-up          # encender (desired=1)
+make apigw-update-ip   # sincronizar IP del backend con API Gateway
+make scale-down        # apagar   (desired=0)
 ```
 
 ---
@@ -210,15 +286,20 @@ O bien modificar los valores por defecto en el Makefile y volver a correr `make 
 ### Healthcheck
 
 ```bash
+# Vía IP directa (útil para diagnóstico):
 make health HOST=<ip-publica>
-# o
 curl http://<ip-publica>:8000/health
+
+# Vía API Gateway HTTPS (URL estable):
+curl $(make apigw-url --no-print-directory)/health
 ```
 
 ### Probar los endpoints
 
+**Vía API Gateway HTTPS (recomendado):**
+
 ```bash
-export API="http://<ip-publica>:8000"
+export API=$(make apigw-url --no-print-directory)
 
 curl -X POST "${API}/transcribe" -F "audio=@audios/mi_audio.mp4"
 curl -X POST "${API}/summarize" -H "Content-Type: application/json" \
@@ -226,24 +307,33 @@ curl -X POST "${API}/summarize" -H "Content-Type: application/json" \
 curl -X POST "${API}/process" -F "audio=@audios/mi_audio.mp4"
 ```
 
-Documentación interactiva: `http://<ip-publica>:8000/docs`
+**Vía IP directa (diagnóstico/fallback):**
+
+```bash
+export API="http://<ip-publica>:8000"
+curl -X POST "${API}/transcribe" -F "audio=@audios/mi_audio.mp4"
+```
+
+Documentación interactiva: `${API}/docs`
 
 ---
 
 ## Actualizar después de un cambio
 
 ```bash
-make test          # verificar que no rompiste nada
-make push          # nueva imagen a ECR
-make deploy        # fuerza redeployment (ECS usa la imagen nueva, zero-downtime)
+make test              # verificar que no rompiste nada
+make push              # nueva imagen a ECR
+make deploy            # fuerza redeployment (ECS usa la imagen nueva, zero-downtime)
+make apigw-update-ip   # el nuevo task tiene nueva IP → sincronizar API Gateway
 ```
 
 Si cambiaste los modelos en `config.py`:
 
 ```bash
 make push
-make efs-init      # re-descargar los nuevos modelos a EFS
+make efs-init          # re-descargar los nuevos modelos a EFS
 make deploy
+make apigw-update-ip
 ```
 
 ---
@@ -259,6 +349,7 @@ make deploy
 | EFS almacenamiento (~2 GB) | 2 × $0.30/GB-mes | ~$0.60 |
 | ECR almacenamiento (~4 GB) | 4 × $0.10/GB | ~$0.40 |
 | CloudWatch Logs | < 5 GB (tier gratis) | $0 |
+| **API Gateway HTTP API** | $1/millón de requests (MVP: ~0 requests) | ~$0 |
 | **Total estimado** | | **~$53/mes** |
 
 ### Comparación vs 24/7
@@ -277,11 +368,20 @@ Usar `make scale-down` al terminar de usar la API y `make scale-up` cuando se ne
 
 ## Cómo bajar todo
 
+Para bajar **solo el API Gateway** (sin tocar ECS ni EFS):
+
 ```bash
-make destroy
+make apigw-destroy
 ```
 
-Elimina en orden: Auto Scaling → ECS Service → Task Definitions → ECS Cluster → EFS (mount targets + filesystem) → Security Group → ECR → IAM Role → CloudWatch Log Group.
+Para bajar **todo** (ECS + EFS + ECR + IAM + API Gateway):
+
+```bash
+make apigw-destroy   # eliminar API Gateway primero
+make destroy         # luego toda la infraestructura ECS/EFS
+```
+
+`make destroy` elimina en orden: Auto Scaling → ECS Service → Task Definitions → ECS Cluster → EFS (mount targets + filesystem) → Security Group → ECR → IAM Role → CloudWatch Log Group.
 
 Pedirá confirmación (hay que escribir `destroy`). **Atención:** elimina también los modelos cacheados en EFS — habrá que correr `make efs-init` nuevamente si se vuelve a hacer setup.
 
@@ -328,6 +428,45 @@ make scale-up
 # make push ya incluye --platform linux/amd64
 # Si buildeas manualmente:
 docker build --platform linux/amd64 -t blablatotext .
+```
+
+### API Gateway responde 502 Bad Gateway
+
+El task se reinició y la IP cambió. Actualizar:
+
+```bash
+make apigw-update-ip
+```
+
+Si el problema persiste, verificar que el task esté RUNNING:
+
+```bash
+make logs
+bash scripts/get-ip.sh
+```
+
+### API Gateway responde 404 Not Found
+
+Verificar que la ruta `$default` existe en la API:
+
+```bash
+API_ID=$(grep '^API_ID=' .apigw | cut -d= -f2)
+aws apigatewayv2 get-routes --api-id "$API_ID" --region us-east-1
+```
+
+Si no hay rutas, recrear el API Gateway:
+
+```bash
+make apigw-destroy
+make apigw-setup
+```
+
+### No se encuentra el archivo .apigw
+
+El API Gateway no fue creado todavía, o fue creado en otra máquina:
+
+```bash
+make apigw-setup   # recrea el API y el archivo .apigw
 ```
 
 ### Ver todos los comandos disponibles

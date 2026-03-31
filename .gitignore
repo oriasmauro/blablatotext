@@ -25,3 +25,6 @@ htmlcov/
 
 # audios de test
 audios/
+
+# IDs del API Gateway (específicos del entorno, no van al repo)
+.apigw

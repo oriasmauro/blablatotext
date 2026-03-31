@@ -7,6 +7,7 @@ ECS_SERVICE ?= blablatotext-service
 APP_PORT    ?= 8000
 SCALE_UP_UTC   ?= 11
 SCALE_DOWN_UTC ?= 23
+APIGW_NAME     ?= blablatotext-apigw
 
 # HOST para make health — usa localhost por defecto, IP del task para remoto
 # Ejemplo: make health HOST=3.91.12.34
@@ -19,7 +20,7 @@ IMAGE_URI      = $(ECR_REGISTRY)/$(ECR_REPO):latest
 
 # ─── Config interna ───────────────────────────────────────────────────────────
 .DEFAULT_GOAL := help
-.PHONY: help dev test lint build run push setup efs-init deploy scale-up scale-down scheduler-enable scheduler-disable destroy health logs
+.PHONY: help dev test lint build run push setup efs-init deploy scale-up scale-down scheduler-enable scheduler-disable destroy health logs apigw-setup apigw-update-ip apigw-url apigw-destroy
 
 # ─── Targets ──────────────────────────────────────────────────────────────────
 
@@ -131,6 +132,40 @@ destroy: ## Baja todo de AWS (servicio ECS, cluster, ECR, IAM role, log group)
 	ECS_CLUSTER=$(ECS_CLUSTER) \
 	ECS_SERVICE=$(ECS_SERVICE) \
 	bash scripts/ecs-destroy.sh
+
+# ─── API Gateway HTTPS ────────────────────────────────────────────────────────
+
+apigw-setup: ## Crea API Gateway HTTPS → ECS (correr después de scale-up)
+	@AWS_REGION=$(AWS_REGION) \
+	ECS_CLUSTER=$(ECS_CLUSTER) \
+	ECS_SERVICE=$(ECS_SERVICE) \
+	APP_PORT=$(APP_PORT) \
+	bash scripts/apigw-setup.sh
+
+apigw-update-ip: ## Actualiza la IP del backend tras un scale-up (nueva tarea Fargate)
+	@AWS_REGION=$(AWS_REGION) \
+	ECS_CLUSTER=$(ECS_CLUSTER) \
+	ECS_SERVICE=$(ECS_SERVICE) \
+	APP_PORT=$(APP_PORT) \
+	bash scripts/apigw-update-ip.sh
+
+apigw-url: ## Muestra la URL HTTPS del API Gateway
+	@API_ID=$$(grep '^API_ID=' .apigw 2>/dev/null | cut -d= -f2); \
+	if [[ -z "$$API_ID" || "$$API_ID" == "None" ]]; then \
+		echo "API Gateway no configurado. Corré: make apigw-setup"; \
+	else \
+		echo "https://$$API_ID.execute-api.$(AWS_REGION).amazonaws.com"; \
+	fi
+
+apigw-destroy: ## Elimina el API Gateway (no toca ECS ni EFS)
+	@if [[ ! -f .apigw ]]; then echo "No hay .apigw — nada que eliminar."; exit 0; fi; \
+	API_ID=$$(grep '^API_ID=' .apigw | cut -d= -f2); \
+	echo "→ Eliminando API Gateway $$API_ID..."; \
+	aws apigatewayv2 delete-api \
+		--api-id "$$API_ID" \
+		--region $(AWS_REGION); \
+	rm -f .apigw; \
+	echo "✓ API Gateway eliminado."
 
 # ─── Observabilidad ───────────────────────────────────────────────────────────
 
