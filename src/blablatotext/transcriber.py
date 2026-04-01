@@ -1,3 +1,4 @@
+import gc
 import subprocess
 from pathlib import Path
 
@@ -32,6 +33,12 @@ class Transcriber:
                 device=settings.device,
                 generate_kwargs={"language": settings.asr_language},
             )
+
+    def unload(self) -> None:
+        """Libera el modelo de memoria. Útil en entornos con RAM limitada
+        cuando se necesita cargar otro modelo grande a continuación."""
+        self._pipeline = None
+        gc.collect()
 
     def _load_audio(self, path: Path) -> dict:
         """Decodifica cualquier formato (incluyendo MP4) a numpy array via ffmpeg."""

@@ -132,6 +132,10 @@ async def process(audio: UploadFile = File(...)) -> ProcessResponse:
     if not transcript:
         return ProcessResponse(transcript="", summary="")
 
+    # Liberar Whisper antes de cargar mT5: ambos juntos no caben en 4 GiB.
+    # El próximo /transcribe recargará Whisper desde EFS (~segundos).
+    app.state.transcriber.unload()
+
     try:
         summary = app.state.summarizer.summarize(transcript)
     except SummarizationError as e:
