@@ -3,40 +3,37 @@ FROM python:3.11-slim AS builder
 
 WORKDIR /app
 
+# Instalar uv
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
+# Copiar archivos de dependencias primero (mejor cache de capas)
 COPY pyproject.toml .
 COPY uv.lock .
 COPY README.md .
 COPY src/ src/
 
-# CPU-only torch (via pytorch-cpu index en pyproject.toml)
+# Instalar dependencias de produccion en un venv dentro del proyecto
 RUN uv sync --no-dev --frozen
-
-# Limpiar el venv: eliminar todo lo que no se ejecuta en runtime
-RUN find /app/.venv -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true \
- && find /app/.venv -type f -name "*.pyc" -delete \
- && find /app/.venv -type f -name "*.pyi" -delete \
- && rm -rf /app/.venv/lib/python3.11/site-packages/torch/test
 
 
 # ── Stage 2: runtime ─────────────────────────────────────────────────────────
 FROM python:3.11-slim AS runtime
 
+# ffmpeg es necesario para decodificar formatos de audio via transcriber
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
+# Copiar el venv y el codigo fuente desde el builder
 COPY --from=builder /app/.venv /app/.venv
 COPY --from=builder /app/src /app/src
+COPY --from=builder /app/pyproject.toml /app/pyproject.toml
 
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    # Silenciar warnings de tokenizers paralelos (no aplica en uvicorn single-worker)
-    TOKENIZERS_PARALLELISM=false
+    PYTHONDONTWRITEBYTECODE=1
 
 EXPOSE 8000
 

@@ -37,7 +37,15 @@ class Transcriber:
     def unload(self) -> None:
         """Libera el modelo de memoria. Útil en entornos con RAM limitada
         cuando se necesita cargar otro modelo grande a continuación."""
-        self._pipeline = None
+        if self._pipeline is not None:
+            # Eliminar referencias a los tensores del modelo explícitamente
+            # antes de que gc las recolecte — PyTorch no devuelve memoria al SO
+            # solo con gc.collect() si hay referencias vivas en el pipeline.
+            model = getattr(self._pipeline, "model", None)
+            if model is not None:
+                for param in model.parameters():
+                    param.data = param.data.new_empty(0)
+            self._pipeline = None
         gc.collect()
 
     def _load_audio(self, path: Path) -> dict:

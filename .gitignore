@@ -26,5 +26,6 @@ htmlcov/
 # audios de test
 audios/
 
-# IDs del API Gateway (específicos del entorno, no van al repo)
+# IDs del API Gateway y estado de deploy (específicos del entorno, no van al repo)
 .apigw
+.last-deploy-tag

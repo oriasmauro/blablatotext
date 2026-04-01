@@ -60,8 +60,12 @@ run: build ## Docker run local en APP_PORT (verifica antes de deployar)
 
 # ─── AWS ──────────────────────────────────────────────────────────────────────
 
-push: ## Build + tag + push a ECR
-	@AWS_REGION=$(AWS_REGION) ECR_REPO=$(ECR_REPO) bash scripts/ecr-push.sh
+push: ## Build + push a ECR (--no-cache, tag versionado, actualiza task definition)
+	@AWS_REGION=$(AWS_REGION) \
+	ECR_REPO=$(ECR_REPO) \
+	ECS_CLUSTER=$(ECS_CLUSTER) \
+	ECS_SERVICE=$(ECS_SERVICE) \
+	bash scripts/ecr-push.sh
 
 setup: ## Crea toda la infraestructura en AWS (ECS + EFS + Auto Scaling)
 	@AWS_REGION=$(AWS_REGION) \
