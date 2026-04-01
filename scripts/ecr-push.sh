@@ -44,9 +44,10 @@ aws ecr get-login-password --region "${AWS_REGION}" \
     | docker login --username AWS --password-stdin "${ECR_REGISTRY}"
 
 # ─── 3. Build ────────────────────────────────────────────────────────────────
-echo "→ [3/5] Building imagen Docker..."
+echo "→ [3/5] Building imagen Docker (--no-cache para garantizar imagen limpia)..."
 docker build \
     --platform linux/amd64 \
+    --no-cache \
     --tag "${ECR_REPO}:latest" \
     .
 
