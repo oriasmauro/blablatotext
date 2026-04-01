@@ -17,8 +17,6 @@ RUN uv sync --no-dev --frozen
 RUN find /app/.venv -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true \
  && find /app/.venv -type f -name "*.pyc" -delete \
  && find /app/.venv -type f -name "*.pyi" -delete \
- && find /app/.venv -type d -name "*.dist-info" -exec rm -rf {} + 2>/dev/null || true \
- && find /app/.venv -type d -name "*.egg-info" -exec rm -rf {} + 2>/dev/null || true \
  && rm -rf /app/.venv/lib/python3.11/site-packages/torch/test \
  && rm -rf /app/.venv/lib/python3.11/site-packages/torch/testing \
  && rm -rf /app/.venv/lib/python3.11/site-packages/torch/ao/ns
